@@ -349,8 +349,19 @@
       hideError();
     });
 
-    function showError(msg) { errorEl.textContent = msg; errorEl.style.display = ''; }
-    function hideError() { errorEl.style.display = 'none'; }
+    let errorTimer = null;
+    function showError(msg) {
+      if (errorTimer) clearTimeout(errorTimer);
+      errorEl.innerHTML = `<span class="dex-error-icon">⚠️</span><span class="dex-error-msg">${msg}</span><button class="dex-error-close" title="关闭">✕</button>`;
+      errorEl.style.display = '';
+      errorEl.querySelector('.dex-error-close').addEventListener('click', hideError);
+      // 8秒后自动消失
+      errorTimer = setTimeout(hideError, 8000);
+    }
+    function hideError() {
+      if (errorTimer) { clearTimeout(errorTimer); errorTimer = null; }
+      errorEl.style.display = 'none';
+    }
 
     // ─── 汇总 Markdown ───
     function buildFullMarkdown() {

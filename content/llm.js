@@ -241,17 +241,23 @@ class DoubaoLLM {
         const port = chrome.runtime.connect({ name: 'llm-stream' });
         DoubaoLLM._activePort = port;
 
+        // 标记回调是否已触发，防止重复
+        let callbackFired = false;
+
         port.onMessage.addListener((msg) => {
+            if (callbackFired) return;
             switch (msg.type) {
                 case 'LLM_CHUNK':
                     onChunk(msg.content);
                     break;
                 case 'LLM_DONE':
+                    callbackFired = true;
                     DoubaoLLM._activePort = null;
                     port.disconnect();
                     onDone();
                     break;
                 case 'LLM_ERROR':
+                    callbackFired = true;
                     DoubaoLLM._activePort = null;
                     port.disconnect();
                     onError(msg.error);
@@ -263,8 +269,16 @@ class DoubaoLLM {
             const wasStopped = DoubaoLLM._stopped;
             DoubaoLLM._activePort = null;
             DoubaoLLM._stopped = false;
+
+            if (callbackFired) return; // 已通过 onMessage 处理过
+            callbackFired = true;
+
             if (wasStopped) {
                 onError('已停止');
+            } else {
+                // 意外断连（Service Worker 休眠、网络中断等）
+                const detail = chrome.runtime.lastError?.message || '连接中断';
+                onError(`与 AI 服务的连接已断开: ${detail}`);
             }
         });
 
