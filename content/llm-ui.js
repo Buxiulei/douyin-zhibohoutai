@@ -578,9 +578,10 @@
       const md = buildFullMarkdown();
       if (!md) return null;
       const meta = getMetaFn();
+      const reportTitle = `${meta.filename}_AI分析报告`;
       return {
         html: generateHtmlReport(md, {
-          title: `${meta.anchor || ''}直播 AI 分析报告`,
+          title: reportTitle,
           anchor: meta.anchor,
           date: meta.date
         }),
