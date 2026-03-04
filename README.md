@@ -2,7 +2,7 @@
 
 > 从抖音直播后台（`anchor.douyin.com`）一键提取直播数据，并调用豆包大模型自动生成 AI 分析报告。
 
-![版本](https://img.shields.io/badge/版本-v2.2.0-800020)
+![版本](https://img.shields.io/badge/版本-v2.3.0-800020)
 ![平台](https://img.shields.io/badge/平台-Chrome_Extension-4285F4)
 ![API](https://img.shields.io/badge/AI-豆包大模型-FF6A00)
 
