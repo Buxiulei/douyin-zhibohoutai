@@ -352,7 +352,7 @@
     let errorTimer = null;
     function showError(msg) {
       if (errorTimer) clearTimeout(errorTimer);
-      errorEl.innerHTML = `<span class="dex-error-icon">⚠️</span><span class="dex-error-msg">${msg}</span><button class="dex-error-close" title="关闭">✕</button>`;
+      errorEl.innerHTML = `<span class="dex-error-icon">${ICONS.WARN}</span><span class="dex-error-msg">${msg}</span><button class="dex-error-close" title="关闭"><svg class="dex-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`;
       errorEl.style.display = '';
       errorEl.querySelector('.dex-error-close').addEventListener('click', hideError);
       // 8秒后自动消失
