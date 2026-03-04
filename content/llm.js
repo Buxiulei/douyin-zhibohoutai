@@ -236,59 +236,90 @@ class DoubaoLLM {
         }
 
         const input = DoubaoLLM.buildInput(data, sectionKey);
+        const MAX_RETRIES = 3;
 
-        // 建立与 background worker 的长连接
-        const port = chrome.runtime.connect({ name: 'llm-stream' });
-        DoubaoLLM._activePort = port;
+        // 单次连接尝试，返回 Promise
+        // resolve(true) = 成功完成，resolve(false) = 意外断连可重试，reject = 不可重试的错误
+        function attempt() {
+            return new Promise((resolve, reject) => {
+                const port = chrome.runtime.connect({ name: 'llm-stream' });
+                DoubaoLLM._activePort = port;
+                let callbackFired = false;
 
-        // 标记回调是否已触发，防止重复
-        let callbackFired = false;
+                port.onMessage.addListener((msg) => {
+                    if (callbackFired) return;
+                    switch (msg.type) {
+                        case 'LLM_CHUNK':
+                            onChunk(msg.content);
+                            break;
+                        case 'LLM_DONE':
+                            callbackFired = true;
+                            DoubaoLLM._activePort = null;
+                            port.disconnect();
+                            resolve(true); // 成功完成
+                            break;
+                        case 'LLM_ERROR':
+                            callbackFired = true;
+                            DoubaoLLM._activePort = null;
+                            port.disconnect();
+                            reject(msg.error); // API 错误，不重试
+                            break;
+                    }
+                });
 
-        port.onMessage.addListener((msg) => {
-            if (callbackFired) return;
-            switch (msg.type) {
-                case 'LLM_CHUNK':
-                    onChunk(msg.content);
-                    break;
-                case 'LLM_DONE':
-                    callbackFired = true;
+                port.onDisconnect.addListener(() => {
+                    const wasStopped = DoubaoLLM._stopped;
                     DoubaoLLM._activePort = null;
-                    port.disconnect();
+                    DoubaoLLM._stopped = false;
+
+                    if (callbackFired) return;
+                    callbackFired = true;
+
+                    if (wasStopped) {
+                        reject('已停止'); // 用户主动停止，不重试
+                    } else {
+                        resolve(false); // 意外断连，可重试
+                    }
+                });
+
+                port.postMessage({
+                    type: 'LLM_REQUEST',
+                    apiKey: config.apiKey,
+                    model: config.model,
+                    input
+                });
+            });
+        }
+
+        // 重试循环
+        for (let retry = 0; retry <= MAX_RETRIES; retry++) {
+            try {
+                const success = await attempt();
+                if (success) {
                     onDone();
-                    break;
-                case 'LLM_ERROR':
-                    callbackFired = true;
-                    DoubaoLLM._activePort = null;
-                    port.disconnect();
-                    onError(msg.error);
-                    break;
+                    return;
+                }
+                // 意外断连，检查是否还有重试机会
+                if (retry < MAX_RETRIES) {
+                    const wait = (retry + 1) * 1000; // 1s, 2s, 3s 递增等待
+                    onChunk(`\n\n> ⚡ 连接中断，${wait / 1000}秒后自动重试（第 ${retry + 1}/${MAX_RETRIES} 次）...\n\n`);
+                    await new Promise(r => setTimeout(r, wait));
+                    // 检查用户是否在等待期间点了停止
+                    if (DoubaoLLM._stopped) {
+                        DoubaoLLM._stopped = false;
+                        onError('已停止');
+                        return;
+                    }
+                } else {
+                    onError(`与 AI 服务的连接已断开，重试 ${MAX_RETRIES} 次后仍无法恢复`);
+                    return;
+                }
+            } catch (err) {
+                // API 错误或用户停止，直接终止不重试
+                onError(err);
+                return;
             }
-        });
-
-        port.onDisconnect.addListener(() => {
-            const wasStopped = DoubaoLLM._stopped;
-            DoubaoLLM._activePort = null;
-            DoubaoLLM._stopped = false;
-
-            if (callbackFired) return; // 已通过 onMessage 处理过
-            callbackFired = true;
-
-            if (wasStopped) {
-                onError('已停止');
-            } else {
-                // 意外断连（Service Worker 休眠、网络中断等）
-                const detail = chrome.runtime.lastError?.message || '连接中断';
-                onError(`与 AI 服务的连接已断开: ${detail}`);
-            }
-        });
-
-        // 发送请求（Responses API 格式）
-        port.postMessage({
-            type: 'LLM_REQUEST',
-            apiKey: config.apiKey,
-            model: config.model,
-            input
-        });
+        }
     }
 
     /** 中断当前分析 */
