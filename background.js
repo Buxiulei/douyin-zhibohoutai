@@ -115,4 +115,23 @@ chrome.runtime.onConnect.addListener((port) => {
     });
 });
 
+// ─── Service Worker 保活机制 ───
+// Content Script 建立 keep-alive port 连接并定时发送心跳，
+// 只要有活跃的 port 连接，Chrome 就不会休眠 Service Worker。
+chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== 'keep-alive') return;
+
+    console.log('[抖音数据提取] 保活连接已建立');
+
+    port.onMessage.addListener((msg) => {
+        if (msg.type === 'PING') {
+            port.postMessage({ type: 'PONG' });
+        }
+    });
+
+    port.onDisconnect.addListener(() => {
+        console.log('[抖音数据提取] 保活连接已断开');
+    });
+});
+
 console.log('[抖音数据提取] Background Service Worker 已加载');

@@ -530,5 +530,45 @@
     aiMount.appendChild(aiPanelEl);
   }
 
+  // ========================
+  //  Service Worker 保活（心跳）
+  // ========================
+  // 当抖音直播后台页面打开时，维持 background Service Worker 活跃，
+  // 防止 Chrome 休眠导致 LLM 流式请求中断。
+  let keepAlivePort = null;
+  let keepAliveTimer = null;
+
+  function setupKeepAlive() {
+    try {
+      keepAlivePort = chrome.runtime.connect({ name: 'keep-alive' });
+
+      keepAlivePort.onDisconnect.addListener(() => {
+        keepAlivePort = null;
+        // Service Worker 可能被重启，延迟后自动重连
+        setTimeout(setupKeepAlive, 1000);
+      });
+
+      // 每 25 秒发送一次心跳（Chrome 30 秒无活动会休眠 SW）
+      if (keepAliveTimer) clearInterval(keepAliveTimer);
+      keepAliveTimer = setInterval(() => {
+        try {
+          if (keepAlivePort) keepAlivePort.postMessage({ type: 'PING' });
+        } catch (_) {
+          // port 已关闭，等 onDisconnect 处理重连
+        }
+      }, 25000);
+    } catch (_) {
+      // 插件被禁用或卸载时忽略
+    }
+  }
+
+  setupKeepAlive();
+
+  // 页面卸载时清理
+  window.addEventListener('beforeunload', () => {
+    if (keepAliveTimer) clearInterval(keepAliveTimer);
+    if (keepAlivePort) { try { keepAlivePort.disconnect(); } catch (_) { } }
+  });
+
   console.log('[抖音直播数据提取] 插件已加载，悬浮窗已就绪');
 })();
