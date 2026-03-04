@@ -305,7 +305,7 @@
 
     // 状态存储
     const sectionResults = {};
-    let activeSection = null;
+    const activeSections = new Set();
     let isAutoMode = false;
     let autoStopped = false;
 
@@ -355,7 +355,6 @@
       errorEl.innerHTML = `<span class="dex-error-icon">${ICONS.WARN}</span><span class="dex-error-msg">${msg}</span><button class="dex-error-close" title="关闭"><svg class="dex-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`;
       errorEl.style.display = '';
       errorEl.querySelector('.dex-error-close').addEventListener('click', hideError);
-      // 8秒后自动消失
       errorTimer = setTimeout(hideError, 8000);
     }
     function hideError() {
@@ -390,7 +389,7 @@
         const actionsWrap = $el(`dex-ai-actions-${sectionKey}`);
         const genBtn = $el(`dex-ai-gen-${sectionKey}`);
 
-        activeSection = sectionKey;
+        activeSections.add(sectionKey);
         let charCount = 0;
         sectionResults[sectionKey] = '';
         actionsWrap.style.display = 'none';
@@ -411,7 +410,7 @@
             statusText.textContent = `生成中... ${charCount} 字`;
           },
           () => {
-            activeSection = null;
+            activeSections.delete(sectionKey);
             stopBtn.style.display = 'none';
             statusIcon.innerHTML = ICONS.CHECK;
             statusText.textContent = `已完成，${sectionResults[sectionKey].length} 字`;
@@ -420,10 +419,12 @@
             actionsWrap.style.display = '';
             genBtn.innerHTML = ICONS.AI + ' 重新生成';
             updateSummary();
+            // 并行模式下更新综合进度
+            if (isAutoMode) updateParallelProgress();
             resolve();
           },
           (error) => {
-            activeSection = null;
+            activeSections.delete(sectionKey);
             stopBtn.style.display = 'none';
             if (sectionResults[sectionKey]) {
               statusIcon.innerHTML = ICONS.WARN;
@@ -440,15 +441,29 @@
               genBtn.innerHTML = ICONS.AI + ' 单独生成';
               updateSummary();
             }
+            if (isAutoMode) updateParallelProgress();
             reject(error);
           }
         );
       });
     }
 
-    // ─── 一键生成综合报告 ───
+    // 并行模式下更新综合进度
+    function updateParallelProgress() {
+      const done = LLM.SECTIONS.filter(s => sectionResults[s.key] && !activeSections.has(s.key)).length;
+      const total = LLM.SECTIONS.length;
+      if (done === total) {
+        progressIcon.innerHTML = ICONS.CHECK;
+        progressText.textContent = `综合报告生成完成，共 ${total} 个板块`;
+      } else {
+        progressIcon.innerHTML = ICONS.LOADING;
+        progressText.textContent = `正在并行生成 ${activeSections.size} 个板块，已完成 ${done}/${total}`;
+      }
+    }
+
+    // ─── 一键生成综合报告（并行） ───
     btnAll.addEventListener('click', async () => {
-      if (activeSection) { showError('请等待当前板块生成完成'); return; }
+      if (activeSections.size > 0) { showError('请等待当前板块生成完成'); return; }
       hideError();
 
       const data = getDataFn();
@@ -459,29 +474,23 @@
       btnAll.style.display = 'none';
       btnAllStop.style.display = '';
       progressWrap.style.display = '';
+      progressIcon.innerHTML = ICONS.LOADING;
+      progressText.textContent = `正在并行生成 ${LLM.SECTIONS.length} 个板块...`;
 
-      for (let i = 0; i < LLM.SECTIONS.length; i++) {
-        if (autoStopped) break;
-
-        const sec = LLM.SECTIONS[i];
-        progressIcon.innerHTML = ICONS.LOADING;
-        progressText.textContent = `正在生成 (${i + 1}/${LLM.SECTIONS.length})：${sec.label}`;
-
-        // 展开当前板块
+      // 展开所有板块
+      LLM.SECTIONS.forEach(sec => {
         const body = $el(`dex-ai-body-${sec.key}`);
         const chevron = $el(`dex-ai-chevron-${sec.key}`);
         const sectionEl = $el(`dex-ai-sec-${sec.key}`);
         body.style.display = '';
         chevron.classList.add('open');
         sectionEl.classList.add('expanded');
+      });
 
-        try {
-          await generateSection(sec.key, data);
-        } catch (err) {
-          showError(`${sec.label}: ${err}`);
-          break;
-        }
-      }
+      // 并行发起所有板块生成
+      const results = await Promise.allSettled(
+        LLM.SECTIONS.map(sec => generateSection(sec.key, data))
+      );
 
       // 完成或中断
       isAutoMode = false;
@@ -489,7 +498,8 @@
       btnAllStop.style.display = 'none';
       btnAll.innerHTML = ICONS.AI + ' 重新生成综合报告';
 
-      if (!autoStopped && Object.keys(sectionResults).length === LLM.SECTIONS.length) {
+      const succeeded = results.filter(r => r.status === 'fulfilled').length;
+      if (succeeded === LLM.SECTIONS.length) {
         progressIcon.innerHTML = ICONS.CHECK;
         progressText.textContent = `综合报告生成完成，共 ${LLM.SECTIONS.length} 个板块`;
       } else if (autoStopped) {
@@ -497,15 +507,15 @@
         progressText.textContent = '已停止';
       } else {
         progressIcon.innerHTML = ICONS.WARN;
-        progressText.textContent = `已完成 ${Object.keys(sectionResults).length}/${LLM.SECTIONS.length} 个板块`;
+        progressText.textContent = `已完成 ${succeeded}/${LLM.SECTIONS.length} 个板块`;
       }
       updateSummary();
     });
 
-    // 停止一键生成
+    // 停止一键生成（停止全部）
     btnAllStop.addEventListener('click', () => {
       autoStopped = true;
-      LLM.stop();
+      LLM.stop(); // 停止全部活跃连接
     });
 
     // ─── 板块折叠/展开 ───
@@ -524,7 +534,7 @@
       // 单独生成按钮
       const genBtn = $el(`dex-ai-gen-${sec.key}`);
       genBtn.addEventListener('click', async () => {
-        if (activeSection) { showError('请等待当前板块生成完成'); return; }
+        if (activeSections.has(sec.key)) { showError('该板块正在生成中'); return; }
         hideError();
         const data = getDataFn();
         if (!data) { showError('暂无数据，请先采集直播数据'); return; }
@@ -538,8 +548,8 @@
       // 停止单独生成
       const stopBtn = $el(`dex-ai-stop-${sec.key}`);
       stopBtn.addEventListener('click', () => {
-        LLM.stop();
-        activeSection = null;
+        LLM.stop(sec.key);
+        activeSections.delete(sec.key);
         stopBtn.style.display = 'none';
         const statusIcon = $el(`dex-ai-icon-${sec.key}`);
         const statusText = $el(`dex-ai-text-${sec.key}`);

@@ -216,11 +216,13 @@ class DoubaoLLM {
 
     // ─── 分析请求 ───
 
-    /** 当前活跃的 port 连接 */
-    static _activePort = null;
+    /** 活跃的 port 连接（按 sectionKey 索引，支持并行） */
+    static _activePorts = new Map();
+    /** 被用户主动停止的 sectionKey 集合 */
+    static _stoppedKeys = new Set();
 
     /**
-     * 发起 LLM 分析（流式返回）
+     * 发起 LLM 分析（流式返回，支持并行）
      * @param {Object} data - 采集数据
      * @param {string} sectionKey - 板块 key（compliance / framework / technique）
      * @param {Function} onChunk - 流式回调 (content: string) => void
@@ -238,12 +240,11 @@ class DoubaoLLM {
         const input = DoubaoLLM.buildInput(data, sectionKey);
         const MAX_RETRIES = 3;
 
-        // 单次连接尝试，返回 Promise
-        // resolve(true) = 成功完成，resolve(false) = 意外断连可重试，reject = 不可重试的错误
+        // 单次连接尝试
         function attempt() {
             return new Promise((resolve, reject) => {
                 const port = chrome.runtime.connect({ name: 'llm-stream' });
-                DoubaoLLM._activePort = port;
+                DoubaoLLM._activePorts.set(sectionKey, port);
                 let callbackFired = false;
 
                 port.onMessage.addListener((msg) => {
@@ -254,29 +255,29 @@ class DoubaoLLM {
                             break;
                         case 'LLM_DONE':
                             callbackFired = true;
-                            DoubaoLLM._activePort = null;
+                            DoubaoLLM._activePorts.delete(sectionKey);
                             port.disconnect();
-                            resolve(true); // 成功完成
+                            resolve(true);
                             break;
                         case 'LLM_ERROR':
                             callbackFired = true;
-                            DoubaoLLM._activePort = null;
+                            DoubaoLLM._activePorts.delete(sectionKey);
                             port.disconnect();
-                            reject(msg.error); // API 错误，不重试
+                            reject(msg.error);
                             break;
                     }
                 });
 
                 port.onDisconnect.addListener(() => {
-                    const wasStopped = DoubaoLLM._stopped;
-                    DoubaoLLM._activePort = null;
-                    DoubaoLLM._stopped = false;
+                    const wasStopped = DoubaoLLM._stoppedKeys.has(sectionKey);
+                    DoubaoLLM._activePorts.delete(sectionKey);
+                    DoubaoLLM._stoppedKeys.delete(sectionKey);
 
                     if (callbackFired) return;
                     callbackFired = true;
 
                     if (wasStopped) {
-                        reject('已停止'); // 用户主动停止，不重试
+                        reject('已停止');
                     } else {
                         resolve(false); // 意外断连，可重试
                     }
@@ -299,35 +300,45 @@ class DoubaoLLM {
                     onDone();
                     return;
                 }
-                // 意外断连，检查是否还有重试机会
                 if (retry < MAX_RETRIES) {
-                    const wait = (retry + 1) * 1000; // 1s, 2s, 3s 递增等待
-                    onChunk(`\n\n> ⚡ 连接中断，${wait / 1000}秒后自动重试（第 ${retry + 1}/${MAX_RETRIES} 次）...\n\n`);
+                    const wait = (retry + 1) * 1000;
+                    onChunk(`\n\n> 连接中断，${wait / 1000}秒后自动重试（第 ${retry + 1}/${MAX_RETRIES} 次）...\n\n`);
                     await new Promise(r => setTimeout(r, wait));
-                    // 检查用户是否在等待期间点了停止
-                    if (DoubaoLLM._stopped) {
-                        DoubaoLLM._stopped = false;
+                    if (DoubaoLLM._stoppedKeys.has(sectionKey)) {
+                        DoubaoLLM._stoppedKeys.delete(sectionKey);
                         onError('已停止');
                         return;
                     }
                 } else {
-                    onError(`与 AI 服务的连接已断开，重试 ${MAX_RETRIES} 次后仍无法恢复`);
+                    onError(`连接已断开，重试 ${MAX_RETRIES} 次后仍无法恢复`);
                     return;
                 }
             } catch (err) {
-                // API 错误或用户停止，直接终止不重试
                 onError(err);
                 return;
             }
         }
     }
 
-    /** 中断当前分析 */
-    static stop() {
-        if (DoubaoLLM._activePort) {
-            DoubaoLLM._stopped = true;
-            DoubaoLLM._activePort.disconnect();
-            DoubaoLLM._activePort = null;
+    /**
+     * 中断分析
+     * @param {string} [sectionKey] - 指定板块 key，不传则停止全部
+     */
+    static stop(sectionKey) {
+        if (sectionKey) {
+            const port = DoubaoLLM._activePorts.get(sectionKey);
+            if (port) {
+                DoubaoLLM._stoppedKeys.add(sectionKey);
+                port.disconnect();
+                DoubaoLLM._activePorts.delete(sectionKey);
+            }
+        } else {
+            // 停止全部
+            for (const [key, port] of DoubaoLLM._activePorts) {
+                DoubaoLLM._stoppedKeys.add(key);
+                port.disconnect();
+            }
+            DoubaoLLM._activePorts.clear();
         }
     }
 }
