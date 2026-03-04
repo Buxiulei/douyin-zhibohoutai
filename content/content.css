@@ -1,0 +1,1039 @@
+/* ==============================
+   抖音直播数据提取 — 悬浮窗样式
+   风格：Modern Cozy (现代温馨)
+   主色调：勃艮第红 #800020 / 辅助：淡金 #D4A76A / 底色：米白 #FFFCF5
+   设计语言：Apple Spatial Design (磨砂、弥散阴影、物理动效)
+   ============================== */
+
+/* 字体变量 */
+:root {
+  --dex-font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --dex-font-num: "DIN Alternate", "SF Pro Rounded", "Roboto Mono", monospace;
+  --dex-cubic-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 悬浮窗容器 */
+#douyin-extractor-float {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2147483647;
+  width: 320px;
+  font-family: var(--dex-font-family);
+  font-size: 13px;
+  color: #5D4E47;
+  /* 深暖灰 */
+  user-select: none;
+  /* 仅对尺寸/透明度做过渡，position (left/top) 不加过渡以确保拖拽跟手 */
+  transition: width 0.3s var(--dex-cubic-spring), opacity 0.3s var(--dex-cubic-spring);
+  /* 缩放以左上角为基准，配合 transform: scale() 实现整体放缩 */
+  transform-origin: top left;
+}
+
+/* 主面板 — 磨砂玻璃质感 */
+#douyin-extractor-float .dex-panel {
+  background: rgba(255, 252, 245, 0.90);
+  /* 提高透明度以展示磨砂 */
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  /* 内发光边框基础 */
+  border-radius: 20px;
+  /* 更圆润的圆角 */
+  box-shadow:
+    0 12px 48px rgba(128, 0, 32, 0.12),
+    /* 远景弥散阴影 */
+    0 4px 16px rgba(128, 0, 32, 0.08),
+    /* 中景阴影 */
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  /* Rim Light 边缘光 */
+  overflow: hidden;
+  transition: height 0.3s var(--dex-cubic-spring);
+}
+
+/* 标题栏（可拖拽） */
+#douyin-extractor-float .dex-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, rgba(255, 250, 240, 0.9), rgba(253, 232, 220, 0.8));
+  cursor: grab;
+  border-bottom: 1px solid rgba(128, 0, 32, 0.06);
+}
+
+#douyin-extractor-float .dex-header:active {
+  cursor: grabbing;
+}
+
+#douyin-extractor-float .dex-header-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #800020;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* 状态圆点 - 带呼吸感 */
+#douyin-extractor-float .dex-header-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #800020;
+  display: inline-block;
+  box-shadow: 0 0 8px rgba(128, 0, 32, 0.5);
+}
+
+/* 版本号标签 */
+#douyin-extractor-float .dex-version {
+  font-size: 10px;
+  font-weight: 500;
+  color: #A69080;
+  margin-left: 6px;
+  background: rgba(128, 0, 32, 0.05);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: var(--dex-font-num);
+}
+
+/* 最小化/关闭按钮 */
+#douyin-extractor-float .dex-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+#douyin-extractor-float .dex-header-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 24px;
+  text-align: center;
+  transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#douyin-extractor-float .dex-btn-minimize {
+  background: rgba(128, 0, 32, 0.08);
+  color: #800020;
+}
+
+#douyin-extractor-float .dex-btn-minimize:hover {
+  background: rgba(128, 0, 32, 0.15);
+  transform: scale(1.1);
+}
+
+/* 内容区域 */
+#douyin-extractor-float .dex-body {
+  padding: 16px 20px;
+}
+
+/* 分区标签 */
+#douyin-extractor-float .dex-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8B6B5E;
+  margin-bottom: 12px;
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 0.5px;
+}
+
+#douyin-extractor-float .dex-section-label::before {
+  content: '';
+  width: 3px;
+  height: 12px;
+  background: #800020;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+#douyin-extractor-float .dex-section-label:first-child {
+  margin-top: 0;
+}
+
+/* 按钮通用样式 — 物理动效 */
+#douyin-extractor-float .dex-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  /* iOS 风格圆角 */
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s var(--dex-cubic-spring);
+  font-family: inherit;
+  line-height: 1.2;
+  position: relative;
+  overflow: hidden;
+}
+
+#douyin-extractor-float .dex-icon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  /* 图标颜色跟随文字颜色 */
+  flex-shrink: 0;
+}
+
+#douyin-extractor-float .dex-btn:active {
+  transform: scale(0.96);
+  /* 真实的按压反馈 */
+}
+
+/* 一键全部采集按钮 — 弥散阴影 + 渐变 */
+#douyin-extractor-float .dex-btn-all {
+  background: linear-gradient(135deg, #9F1D35, #800020);
+  color: #fff;
+  border: none;
+  /* 渐变按钮通常无边框 */
+  width: 100%;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 14px 16px;
+  box-shadow: 0 8px 20px rgba(128, 0, 32, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  /* 增加内高光 */
+}
+
+#douyin-extractor-float .dex-btn-all:hover {
+  background: linear-gradient(135deg, #B2223A, #9F1D35);
+  box-shadow: 0 10px 24px rgba(128, 0, 32, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+#douyin-extractor-float .dex-btn-all:active {
+  transform: scale(0.98) translateY(0);
+}
+
+#douyin-extractor-float .dex-btn-all:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  background: #E5E5E5;
+  color: #9CA3AF;
+  border: 1px solid #D1D5DB;
+}
+
+/* 主按钮 — 次级操作 */
+#douyin-extractor-float .dex-btn-primary {
+  background: #FFF5F7;
+  color: #800020;
+  border: 1px solid rgba(128, 0, 32, 0.1);
+}
+
+#douyin-extractor-float .dex-btn-primary:hover {
+  background: #FFE8ED;
+  border-color: rgba(128, 0, 32, 0.25);
+  color: #600018;
+  transform: translateY(-1px);
+}
+
+#douyin-extractor-float .dex-btn-primary:disabled {
+  background: #F3F4F6;
+  color: #9CA3AF;
+  border-color: #E5E7EB;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 停止按钮 */
+#douyin-extractor-float .dex-btn-stop {
+  background: #FEF2F2;
+  color: #9F1D35;
+  border: 1px solid rgba(159, 29, 53, 0.15);
+}
+
+#douyin-extractor-float .dex-btn-stop:hover {
+  background: #FEE2E2;
+  border-color: rgba(159, 29, 53, 0.3);
+  box-shadow: 0 4px 12px rgba(159, 29, 53, 0.1);
+}
+
+/* 导出按钮 — 淡金质感 */
+#douyin-extractor-float .dex-btn-export {
+  background: #FFFCF5;
+  color: #8B6B3E;
+  border: 1px solid rgba(212, 167, 106, 0.3);
+}
+
+#douyin-extractor-float .dex-btn-export:hover {
+  background: #FFF8EB;
+  border-color: rgba(212, 167, 106, 0.5);
+  color: #6B5030;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(212, 167, 106, 0.12);
+}
+
+#douyin-extractor-float .dex-btn-export:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  background: #F9FAFB;
+  border-color: #E5E7EB;
+  color: #9CA3AF;
+}
+
+/* 清空按钮 */
+#douyin-extractor-float .dex-btn-danger {
+  background: transparent;
+  color: #9F1D35;
+  border: 1px dashed rgba(159, 29, 53, 0.3);
+  font-size: 12px;
+  padding: 8px 14px;
+}
+
+#douyin-extractor-float .dex-btn-danger:hover {
+  background: rgba(159, 29, 53, 0.05);
+  border-color: #9F1D35;
+}
+
+/* 按钮行 — 自动填充 */
+#douyin-extractor-float .dex-btn-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+#douyin-extractor-float .dex-btn-row .dex-btn {
+  flex: 1;
+  /* 按钮自动填充宽度 */
+  justify-content: center;
+}
+
+/* 停止按钮 — 醒目样式 */
+#douyin-extractor-float .dex-btn-stop {
+  background: linear-gradient(135deg, #FFF0F0, #FFE5E5);
+  color: #9F1D35;
+  border: 1px solid rgba(159, 29, 53, 0.2);
+  font-weight: 600;
+}
+
+#douyin-extractor-float .dex-btn-stop:hover {
+  background: linear-gradient(135deg, #FFE5E5, #FFD0D0);
+  border-color: rgba(159, 29, 53, 0.4);
+  box-shadow: 0 4px 12px rgba(159, 29, 53, 0.15);
+  transform: translateY(-1px);
+}
+
+#douyin-extractor-float .dex-btn-stop:active {
+  transform: scale(0.98);
+}
+
+/* 进度条 */
+/* 进度条容器 */
+#douyin-extractor-float .dex-progress-wrap {
+  margin: 16px 0;
+  display: none;
+  background: transparent;
+  padding: 0;
+  border: none;
+}
+
+#douyin-extractor-float .dex-progress-wrap.active {
+  display: block;
+  animation: dex-slide-in 0.3s var(--dex-cubic-spring);
+}
+
+@keyframes dex-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 进度条轨道 */
+#douyin-extractor-float .dex-progress-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(128, 0, 32, 0.06);
+  overflow: hidden;
+  position: relative;
+}
+
+/* 进度条填充动画 */
+@keyframes dex-progress-stripes {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 20px 0;
+  }
+}
+
+#douyin-extractor-float .dex-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  width: 0%;
+  background: linear-gradient(135deg, #B2223A 25%, #9F1D35 50%, #800020 75%, #B2223A 100%);
+  background-size: 200% 100%;
+  transition: width 0.3s ease-out;
+  position: relative;
+  /* 增加光效动画 */
+  animation: dex-shimmer 2s infinite linear;
+}
+
+@keyframes dex-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* 进度文字 */
+#douyin-extractor-float .dex-progress-text {
+  font-size: 11px;
+  color: #8B6B5E;
+  margin-top: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
+  font-feature-settings: "tnum";
+}
+
+/* 统计信息 — Bento Grid 风格 */
+#douyin-extractor-float .dex-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  /* 三列均分 */
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+#douyin-extractor-float .dex-stat-item {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  padding: 12px 8px;
+  text-align: center;
+  border: 1px solid rgba(128, 0, 32, 0.08);
+  transition: transform 0.2s ease;
+}
+
+#douyin-extractor-float .dex-stat-item:hover {
+  background: rgba(255, 255, 255, 0.7);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(128, 0, 32, 0.06);
+}
+
+#douyin-extractor-float .dex-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #800020;
+  display: block;
+  line-height: 1.2;
+  font-family: var(--dex-font-num);
+  margin-bottom: 2px;
+}
+
+#douyin-extractor-float .dex-stat-label {
+  font-size: 11px;
+  color: #8D7B68;
+  display: block;
+}
+
+/* 分割线 */
+#douyin-extractor-float .dex-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(128, 0, 32, 0.1), transparent);
+  /* 渐变分割线 */
+  margin: 20px 0;
+}
+
+/* 底部操作区 */
+#douyin-extractor-float .dex-footer {
+  padding: 14px 20px;
+  border-top: 1px solid rgba(128, 0, 32, 0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* 最小化时的样式 */
+#douyin-extractor-float.minimized .dex-body,
+#douyin-extractor-float.minimized .dex-footer {
+  display: none;
+}
+
+#douyin-extractor-float.minimized {
+  width: auto;
+  min-width: 200px;
+}
+
+#douyin-extractor-float.minimized .dex-header {
+  padding: 10px 16px;
+  border-bottom: none;
+  background: rgba(255, 252, 245, 0.95);
+  border: 1px solid rgba(128, 0, 32, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(128, 0, 32, 0.08);
+}
+
+#douyin-extractor-float.minimized .dex-header-title {
+  margin-right: 12px;
+}
+
+/* 脉冲动画 — 采集中 */
+@keyframes dex-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(128, 0, 32, 0.2);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(0.96);
+    box-shadow: 0 0 0 4px rgba(128, 0, 32, 0);
+  }
+}
+
+#douyin-extractor-float .dex-scraping-indicator {
+  animation: dex-pulse 2s var(--dex-cubic-spring) infinite;
+  color: #800020;
+  font-size: 11px;
+  font-weight: 600;
+  display: none;
+  margin-left: 8px;
+  background: rgba(128, 0, 32, 0.08);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+#douyin-extractor-float .dex-scraping-indicator.active {
+  display: inline-block;
+}
+
+/* 四角缩放手柄 — 通用 */
+#douyin-extractor-float .dex-resize-handle {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+#douyin-extractor-float:hover .dex-resize-handle {
+  opacity: 0.4;
+}
+
+#douyin-extractor-float .dex-resize-handle:hover {
+  opacity: 0.8;
+}
+
+/* 四角定位 + cursor */
+#douyin-extractor-float .dex-resize-tl {
+  top: 0;
+  left: 0;
+  cursor: nw-resize;
+}
+
+#douyin-extractor-float .dex-resize-tr {
+  top: 0;
+  right: 0;
+  cursor: ne-resize;
+}
+
+#douyin-extractor-float .dex-resize-bl {
+  bottom: 0;
+  left: 0;
+  cursor: sw-resize;
+}
+
+#douyin-extractor-float .dex-resize-br {
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+}
+
+/* 角标装饰（仅右下角显示斜线） */
+#douyin-extractor-float .dex-resize-br::before,
+#douyin-extractor-float .dex-resize-br::after {
+  content: '';
+  position: absolute;
+  background: #800020;
+  border-radius: 1px;
+}
+
+#douyin-extractor-float .dex-resize-br::before {
+  width: 12px;
+  height: 2px;
+  bottom: 4px;
+  right: 0;
+  transform: rotate(-45deg);
+  transform-origin: bottom right;
+}
+
+#douyin-extractor-float .dex-resize-br::after {
+  width: 7px;
+  height: 2px;
+  bottom: 2px;
+  right: 0;
+  transform: rotate(-45deg);
+  transform-origin: bottom right;
+}
+
+/* 最小化时隐藏所有缩放手柄 */
+#douyin-extractor-float.minimized .dex-resize-handle {
+  display: none;
+}
+
+/* 折叠区域 */
+#douyin-extractor-float .dex-details {
+  border-top: 1px dashed rgba(128, 0, 32, 0.1);
+  margin-top: 16px;
+  padding-top: 12px;
+}
+
+#douyin-extractor-float .dex-summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #9F1D35;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 0;
+  transition: opacity 0.2s;
+}
+
+#douyin-extractor-float .dex-summary::-webkit-details-marker {
+  display: none;
+}
+
+#douyin-extractor-float .dex-summary:hover {
+  opacity: 0.8;
+  background: rgba(159, 29, 53, 0.03);
+  border-radius: 8px;
+}
+
+#douyin-extractor-float .dex-summary::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  margin-top: -2px;
+  transition: transform 0.2s ease;
+}
+
+#douyin-extractor-float .dex-details[open] .dex-summary::after {
+  transform: rotate(-135deg) translate(-1px, -1px);
+}
+
+#douyin-extractor-float .dex-details[open] .dex-summary {
+  margin-bottom: 12px;
+  color: #8B6B5E;
+}
+
+/* ==============================
+   AI 分析面板样式
+   ============================== */
+
+/* AI 面板容器 */
+#douyin-extractor-float .dex-ai-panel {
+  border-top: 1px solid rgba(128, 0, 32, 0.08);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+/* AI 设置区域 */
+#douyin-extractor-float .dex-ai-settings {
+  margin-bottom: 12px;
+  border-radius: 10px;
+  background: rgba(255, 248, 245, 0.6);
+  border: 1px solid rgba(128, 0, 32, 0.08);
+  overflow: hidden;
+}
+
+#douyin-extractor-float .dex-ai-settings-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #8B6B5E;
+  transition: background 0.2s;
+}
+
+#douyin-extractor-float .dex-ai-settings-header:hover {
+  background: rgba(128, 0, 32, 0.04);
+}
+
+#douyin-extractor-float .dex-ai-settings-status {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 400;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+#douyin-extractor-float .dex-ai-settings-status .dex-icon {
+  width: 11px;
+  height: 11px;
+}
+
+#douyin-extractor-float .dex-ai-settings-status.configured {
+  color: #2d8a4e;
+}
+
+#douyin-extractor-float .dex-ai-settings-status.unconfigured {
+  color: #c0872e;
+}
+
+#douyin-extractor-float .dex-ai-settings-body {
+  padding: 8px 12px 12px;
+  border-top: 1px solid rgba(128, 0, 32, 0.06);
+}
+
+/* 输入字段 */
+#douyin-extractor-float .dex-ai-field {
+  margin-bottom: 8px;
+}
+
+#douyin-extractor-float .dex-ai-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: #8B6B5E;
+  margin-bottom: 4px;
+}
+
+#douyin-extractor-float .dex-ai-field input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid rgba(128, 0, 32, 0.12);
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.8);
+  color: #5D4E47;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+#douyin-extractor-float .dex-ai-field input:focus {
+  border-color: rgba(128, 0, 32, 0.3);
+  box-shadow: 0 0 0 3px rgba(128, 0, 32, 0.06);
+}
+
+#douyin-extractor-float .dex-ai-field input::placeholder {
+  color: #B8A89C;
+}
+
+#douyin-extractor-float .dex-ai-save-btn {
+  width: 100%;
+  margin-top: 4px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+/* 一键生成主按钮区 */
+#douyin-extractor-float .dex-ai-main-action {
+  margin-bottom: 12px;
+}
+
+/* 停止按钮 — 全宽、与「停止」按钮同风格（勃艮第红） */
+#douyin-extractor-float .dex-btn-stop-full {
+  background: linear-gradient(135deg, #B2223A, #9F1D35) !important;
+  box-shadow: 0 8px 20px rgba(159, 29, 53, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+#douyin-extractor-float .dex-btn-stop-full:hover {
+  background: linear-gradient(135deg, #C4293F, #B2223A) !important;
+  box-shadow: 0 10px 24px rgba(159, 29, 53, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+/* 综合进度条 */
+#douyin-extractor-float .dex-ai-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 248, 245, 0.7);
+  border: 1px solid rgba(128, 0, 32, 0.08);
+  border-radius: 10px;
+  font-size: 12px;
+  color: #800020;
+  animation: dex-slide-in 0.3s var(--dex-cubic-spring);
+}
+
+#douyin-extractor-float .dex-ai-progress .dex-ai-status-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  color: #800020;
+}
+
+#douyin-extractor-float .dex-ai-progress .dex-ai-status-icon .dex-icon {
+  width: 14px;
+  height: 14px;
+}
+
+#douyin-extractor-float .dex-ai-progress .dex-ai-status-text {
+  font-weight: 500;
+}
+
+/* 三大板块区域 */
+#douyin-extractor-float .dex-ai-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+/* 板块卡片 */
+#douyin-extractor-float .dex-ai-section {
+  border: 1px solid rgba(128, 0, 32, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 248, 245, 0.5);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+#douyin-extractor-float .dex-ai-section:hover {
+  border-color: rgba(128, 0, 32, 0.15);
+}
+
+/* 板块头部 */
+#douyin-extractor-float .dex-ai-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+#douyin-extractor-float .dex-ai-section-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #9F1D35, #800020);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+#douyin-extractor-float .dex-ai-section-info {
+  flex: 1;
+  min-width: 0;
+}
+
+#douyin-extractor-float .dex-ai-section-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5D4E47;
+}
+
+#douyin-extractor-float .dex-ai-section-desc {
+  display: none;
+  font-size: 11px;
+  color: #A09080;
+  margin-top: 1px;
+}
+
+#douyin-extractor-float .dex-ai-section.expanded .dex-ai-section-desc {
+  display: block;
+}
+
+/* 折叠箭头 */
+#douyin-extractor-float .dex-ai-section-chevron {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  color: #A09080;
+  transition: transform 0.25s ease;
+}
+
+#douyin-extractor-float .dex-ai-section-chevron .dex-icon {
+  width: 14px;
+  height: 14px;
+}
+
+#douyin-extractor-float .dex-ai-section-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* 板块展开内容 */
+#douyin-extractor-float .dex-ai-section-body {
+  padding: 0 12px 10px;
+  border-top: 1px solid rgba(128, 0, 32, 0.04);
+}
+
+/* 板块状态徽章 */
+#douyin-extractor-float .dex-ai-section-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+#douyin-extractor-float .dex-ai-section-badge .dex-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* 板块按钮区域（在 body 内，不需要额外 padding） */
+#douyin-extractor-float .dex-ai-section-actions {
+  margin-bottom: 6px;
+}
+
+/* 板块级别的生成按钮 — 小号版 */
+#douyin-extractor-float .dex-btn-section {
+  width: 100%;
+  font-size: 12px;
+  padding: 8px 12px;
+  font-weight: 500;
+}
+
+/* 板块状态条 */
+#douyin-extractor-float .dex-ai-section-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12px;
+  color: #800020;
+}
+
+#douyin-extractor-float .dex-ai-section-status .dex-ai-status-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  color: #800020;
+}
+
+#douyin-extractor-float .dex-ai-section-status .dex-ai-status-icon .dex-icon {
+  width: 14px;
+  height: 14px;
+}
+
+#douyin-extractor-float .dex-ai-section-status .dex-ai-status-text {
+  font-weight: 500;
+  flex: 1;
+}
+
+/* 小号停止按钮 */
+#douyin-extractor-float .dex-btn-sm {
+  padding: 3px 8px;
+  font-size: 11px;
+  min-width: auto;
+}
+
+#douyin-extractor-float .dex-btn-sm .dex-icon {
+  width: 12px;
+  height: 12px;
+}
+
+/* AI 按钮通用 — 勃艮第红 */
+#douyin-extractor-float .dex-btn-ai {
+  background: linear-gradient(135deg, #9F1D35, #800020);
+  color: #fff;
+  border: none;
+  width: 100%;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 14px 16px;
+  box-shadow: 0 8px 20px rgba(128, 0, 32, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+#douyin-extractor-float .dex-btn-ai:hover {
+  background: linear-gradient(135deg, #B2223A, #9F1D35);
+  box-shadow: 0 10px 24px rgba(128, 0, 32, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+#douyin-extractor-float .dex-btn-ai:active {
+  transform: scale(0.98) translateY(0);
+}
+
+#douyin-extractor-float .dex-btn-ai:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  background: #E5E5E5;
+  color: #9CA3AF;
+}
+
+/* 汇总操作区 */
+#douyin-extractor-float .dex-ai-summary {
+  margin-top: 4px;
+  animation: dex-slide-in 0.3s var(--dex-cubic-spring);
+}
+
+#douyin-extractor-float .dex-ai-summary .dex-btn {
+  flex: 1;
+  justify-content: center;
+  font-size: 12px;
+  padding: 10px 12px;
+}
+
+/* SVG 旋转动画 */
+@keyframes dex-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+#douyin-extractor-float .dex-icon-spin {
+  animation: dex-spin 1.2s linear infinite;
+}
+
+/* 错误提示 */
+#douyin-extractor-float .dex-ai-error {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #b91c1c;
+}

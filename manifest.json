@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "抖音直播数据提取",
+  "version": "2.2.0",
+  "description": "从抖音直播后台提取文字记录和评论数据，并支持 AI 智能分析",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://anchor.douyin.com/*"
+      ],
+      "js": [
+        "content/scraper.js",
+        "content/exporter.js",
+        "content/llm.js",
+        "content/llm-ui.js",
+        "content/content.js"
+      ],
+      "css": [
+        "content/content.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://anchor.douyin.com/*"
+      ],
+      "js": [
+        "content/page-bridge.js"
+      ],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    }
+  ],
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://ark.cn-beijing.volces.com/*"
+  ]
+}
