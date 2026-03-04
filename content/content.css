@@ -770,15 +770,20 @@
   margin-bottom: 12px;
 }
 
-/* 停止按钮 — 全宽、与「停止」按钮同风格（勃艮第红） */
+/* 停止按钮 — 全宽、与采集区「停止」按钮同款浅红色 */
 #douyin-extractor-float .dex-btn-stop-full {
-  background: linear-gradient(135deg, #B2223A, #9F1D35) !important;
-  box-shadow: 0 8px 20px rgba(159, 29, 53, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  background: linear-gradient(135deg, #FFF0F0, #FFE5E5) !important;
+  color: #9F1D35 !important;
+  border: 1px solid rgba(159, 29, 53, 0.2) !important;
+  box-shadow: 0 4px 12px rgba(159, 29, 53, 0.08) !important;
+  font-weight: 600;
 }
 
 #douyin-extractor-float .dex-btn-stop-full:hover {
-  background: linear-gradient(135deg, #C4293F, #B2223A) !important;
-  box-shadow: 0 10px 24px rgba(159, 29, 53, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  background: linear-gradient(135deg, #FFE5E5, #FFD0D0) !important;
+  border-color: rgba(159, 29, 53, 0.4) !important;
+  box-shadow: 0 6px 16px rgba(159, 29, 53, 0.15) !important;
+  transform: translateY(-1px);
 }
 
 /* 综合进度条 */
