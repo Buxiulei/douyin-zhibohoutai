@@ -37,7 +37,7 @@
       <div class="dex-header" id="dex-drag-handle">
         <div class="dex-header-title">
           直播数据提取
-          <span class="dex-version">v2.3.0</span>
+          <span class="dex-version">v2.4.0</span>
           <span class="dex-scraping-indicator" id="dex-scraping-indicator">${ICONS.SCRAPING} 采集中</span>
         </div>
         <div class="dex-header-actions">
