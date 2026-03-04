@@ -196,6 +196,7 @@
     COPY: '<svg class="dex-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
     STOP: '<svg class="dex-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>',
     STOPPED: '<svg class="dex-icon" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>',
+    OPEN: '<svg class="dex-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
     CHEVRON: '<svg class="dex-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>'
   };
 
@@ -275,7 +276,10 @@
       <!-- 汇总下载区 -->
       <div class="dex-ai-summary" id="dex-ai-summary" style="display:none;">
         <div class="dex-btn-row">
-          <button class="dex-btn dex-btn-ai" id="dex-ai-dl-html">${ICONS.DOWNLOAD} 下载 HTML</button>
+          <button class="dex-btn dex-btn-ai" id="dex-ai-open-html">${ICONS.OPEN} 打开报告</button>
+        </div>
+        <div class="dex-btn-row" style="margin-top:6px;">
+          <button class="dex-btn dex-btn-export" id="dex-ai-dl-html">${ICONS.DOWNLOAD} 下载 HTML</button>
           <button class="dex-btn dex-btn-export" id="dex-ai-dl-txt">${ICONS.DOWNLOAD} 下载 TXT</button>
         </div>
       </div>
@@ -299,6 +303,7 @@
     const progressIcon = $el('dex-ai-progress-icon');
     const progressText = $el('dex-ai-progress-text');
     const summaryWrap = $el('dex-ai-summary');
+    const openHtmlBtn = $el('dex-ai-open-html');
     const dlHtmlBtn = $el('dex-ai-dl-html');
     const dlTxtBtn = $el('dex-ai-dl-txt');
     const errorEl = $el('dex-ai-error');
@@ -568,17 +573,35 @@
       });
     });
 
+    // ─── 生成 HTML 报告内容 ───
+    function buildHtmlReport() {
+      const md = buildFullMarkdown();
+      if (!md) return null;
+      const meta = getMetaFn();
+      return {
+        html: generateHtmlReport(md, {
+          title: `${meta.anchor || ''}直播 AI 分析报告`,
+          anchor: meta.anchor,
+          date: meta.date
+        }),
+        filename: meta.filename
+      };
+    }
+
+    // ─── 打开报告（新标签页） ───
+    openHtmlBtn.addEventListener('click', () => {
+      const report = buildHtmlReport();
+      if (!report) return;
+      const blob = new Blob([report.html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    });
+
     // ─── 下载 HTML ───
     dlHtmlBtn.addEventListener('click', () => {
-      const md = buildFullMarkdown();
-      if (!md) return;
-      const meta = getMetaFn();
-      const html = generateHtmlReport(md, {
-        title: `${meta.anchor || ''}直播 AI 分析报告`,
-        anchor: meta.anchor,
-        date: meta.date
-      });
-      downloadFile(html, `${meta.filename}_AI分析报告.html`, 'text/html;charset=utf-8');
+      const report = buildHtmlReport();
+      if (!report) return;
+      downloadFile(report.html, `${report.filename}_AI分析报告.html`, 'text/html;charset=utf-8');
     });
 
     // ─── 下载 TXT ───
