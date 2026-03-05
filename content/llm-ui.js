@@ -18,8 +18,9 @@
     if (!md) return '';
 
     // ── 第一步：预处理 Markdown 表格块 ──
+    // 注意：正则不再贪婪消费表格后的空行，以避免与后续标题行拼接
     let html = md.replace(
-      /(^\|.+\|$\n?(?:\s*\n)?)+/gm,
+      /(^\|.+\|$\n?)+/gm,
       (tableBlock) => {
         const tableLines = tableBlock.split('\n').filter(l => l.trim().startsWith('|'));
         let headerRows = [];
@@ -52,7 +53,7 @@
         }
         tableHtml += '<tbody>' + bodyRows.map(r => toRow(r, 'td')).join('') + '</tbody>';
         tableHtml += '</table>';
-        return tableHtml;
+        return tableHtml + '\n';
       }
     );
 
