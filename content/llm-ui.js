@@ -18,28 +18,23 @@
     if (!md) return '';
 
     // ── 第一步：预处理 Markdown 表格块 ──
-    // 将连续的 "|...|" 行（允许中间有空行）识别为一个完整表格块，统一转换为 HTML
     let html = md.replace(
       /(^\|.+\|$\n?(?:\s*\n)?)+/gm,
       (tableBlock) => {
-        // 提取所有 "|...|" 行，忽略空行
         const tableLines = tableBlock.split('\n').filter(l => l.trim().startsWith('|'));
         let headerRows = [];
         let bodyRows = [];
         let sepIdx = -1;
 
-        // 找 separator 行（如 |---|---| 或 |:---:|:---:|）
         for (let i = 0; i < tableLines.length; i++) {
           const cells = tableLines[i].split('|').filter(c => c.trim());
           if (cells.every(c => /^[\s\-:]+$/.test(c))) { sepIdx = i; break; }
         }
 
         if (sepIdx > 0) {
-          // separator 之前的行是表头，之后的行是数据
           headerRows = tableLines.slice(0, sepIdx);
           bodyRows = tableLines.slice(sepIdx + 1);
         } else {
-          // 没有 separator 或 separator 在首行 → 全部作为数据行（无表头）
           bodyRows = tableLines.filter(l => {
             const cells = l.split('|').filter(c => c.trim());
             return !cells.every(c => /^[\s\-:]+$/.test(c));
@@ -61,46 +56,123 @@
       }
     );
 
-    // ── 第二步：行内格式化（标题、加粗、斜体等）──
-    // 注意：表格已在第一步转为 HTML，这里只对非 HTML 行做转义
-    html = html.split('\n').map(line => {
-      // 跳过已包含 HTML 标签的行（表格输出）
-      if (/^<(table|thead|tbody|tr|th|td|\/)/.test(line.trim())) return line;
-      return line
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-    }).join('\n');
-
-    html = html
-      .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
-      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-      .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/^---$/gm, '<hr/>');
-
-    // ── 第三步：段落与列表 ──
+    // ── 第二步：逐行处理 ──
     const lines = html.split('\n');
     const result = [];
-    let inList = false;
-    for (const line of lines) {
-      if (/^- (.+)$/.test(line)) {
-        if (!inList) { result.push('<ul>'); inList = true; }
-        result.push(`<li>${line.replace(/^- /, '')}</li>`);
-      } else {
-        if (inList) { result.push('</ul>'); inList = false; }
-        if (line.trim() && !line.startsWith('<')) {
-          result.push(`<p>${line}</p>`);
-        } else {
-          result.push(line);
-        }
+    let listStack = []; // 栈跟踪嵌套列表：[{type:'ul'|'ol', indent}]
+
+    // 关闭列表到指定缩进级别
+    function closeListsTo(indent) {
+      while (listStack.length > 0 && listStack[listStack.length - 1].indent >= indent) {
+        result.push(`</${listStack.pop().type}>`);
       }
     }
-    if (inList) result.push('</ul>');
+
+    // 关闭所有列表
+    function closeAllLists() {
+      while (listStack.length > 0) {
+        result.push(`</${listStack.pop().type}>`);
+      }
+    }
+
+    // 行内格式化（加粗、斜体、代码、行内 HTML 转义）
+    function formatInline(text) {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/<(?!\/?(?:strong|em|code|table|thead|tbody|tr|th|td|ul|ol|li|h[1-4]|p|hr|blockquote|br)\b)/g, '&lt;')
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>');
+    }
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // 跳过已包含 HTML 标签的行（表格输出）
+      if (/^<(table|thead|tbody|tr|th|td|\/)/.test(trimmed)) {
+        closeAllLists();
+        result.push(line);
+        continue;
+      }
+
+      // 空行
+      if (!trimmed) {
+        closeAllLists();
+        result.push('');
+        continue;
+      }
+
+      // 水平线
+      if (/^---+$/.test(trimmed)) {
+        closeAllLists();
+        result.push('<hr/>');
+        continue;
+      }
+
+      // 标题（h1-h4）
+      const headingMatch = trimmed.match(/^(#{1,4})\s+(.+)$/);
+      if (headingMatch) {
+        closeAllLists();
+        const level = headingMatch[1].length;
+        result.push(`<h${level}>${formatInline(headingMatch[2])}</h${level}>`);
+        continue;
+      }
+
+      // Blockquote
+      if (trimmed.startsWith('> ')) {
+        closeAllLists();
+        result.push(`<blockquote><p>${formatInline(trimmed.slice(2))}</p></blockquote>`);
+        continue;
+      }
+
+      // 计算缩进（空格数）
+      const indent = line.search(/\S/);
+
+      // 无序列表项（- 或 * 开头）
+      const ulMatch = trimmed.match(/^[-*]\s+(.+)$/);
+      if (ulMatch) {
+        if (listStack.length === 0 || indent > listStack[listStack.length - 1].indent) {
+          listStack.push({ type: 'ul', indent });
+          result.push('<ul>');
+        } else if (indent < listStack[listStack.length - 1].indent) {
+          closeListsTo(indent + 1);
+        } else if (listStack[listStack.length - 1].type !== 'ul') {
+          // 同级但类型不同，关闭旧的开新的
+          result.push(`</${listStack.pop().type}>`);
+          listStack.push({ type: 'ul', indent });
+          result.push('<ul>');
+        }
+        result.push(`<li>${formatInline(ulMatch[1])}</li>`);
+        continue;
+      }
+
+      // 有序列表项（1. 2. 3. 等开头）
+      const olMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+      if (olMatch) {
+        if (listStack.length === 0 || indent > listStack[listStack.length - 1].indent) {
+          listStack.push({ type: 'ol', indent });
+          result.push('<ol>');
+        } else if (indent < listStack[listStack.length - 1].indent) {
+          closeListsTo(indent + 1);
+        } else if (listStack[listStack.length - 1].type !== 'ol') {
+          result.push(`</${listStack.pop().type}>`);
+          listStack.push({ type: 'ol', indent });
+          result.push('<ol>');
+        }
+        result.push(`<li>${formatInline(olMatch[1])}</li>`);
+        continue;
+      }
+
+      // 普通段落
+      closeAllLists();
+      if (!trimmed.startsWith('<')) {
+        result.push(`<p>${formatInline(trimmed)}</p>`);
+      } else {
+        result.push(line);
+      }
+    }
+    closeAllLists();
     return result.join('\n');
   }
 
@@ -150,6 +222,8 @@
   .report-body tbody td { padding: 9px 14px; border-bottom: 1px solid #f0e8e2; color: #4a4a4a; }
   .report-body tbody tr:nth-child(even) { background: #fdfaf8; }
   .report-body tbody tr:hover { background: #fdf5f0; }
+  .report-body blockquote { margin: 16px 0; padding: 12px 20px; border-left: 3px solid #b8860b; background: #fdf8f0; border-radius: 0 8px 8px 0; color: #6b5548; font-size: 14px; }
+  .report-body blockquote p { margin: 0; color: inherit; }
   .report-body hr { border: none; height: 1px; background: linear-gradient(90deg, transparent, #d4c4b8, transparent); margin: 32px 0; }
   .report-footer { text-align: center; margin-top: 40px; padding-top: 24px; border-top: 1px solid #e8ddd4; font-size: 12px; color: #a09080; }
   @media print { body { background: #fff; } .report-container { padding: 20px; } .report-body { box-shadow: none; border: none; padding: 0; background: transparent; } .report-footer { display: none; } }
