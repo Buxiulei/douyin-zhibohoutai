@@ -37,7 +37,7 @@
       <div class="dex-header" id="dex-drag-handle">
         <div class="dex-header-title">
           直播数据提取
-          <span class="dex-version">v2.6.0</span>
+          <span class="dex-version" id="dex-version"></span>
           <span class="dex-scraping-indicator" id="dex-scraping-indicator">${ICONS.SCRAPING} 采集中</span>
         </div>
         <div class="dex-header-actions">
@@ -138,6 +138,12 @@
   `;
 
   document.body.appendChild(floatEl);
+
+  // 从 manifest.json 动态读取版本号（唯一真相来源）
+  try {
+    const ver = chrome.runtime.getManifest().version;
+    document.getElementById('dex-version').textContent = `v${ver}`;
+  } catch (_) { /* 非扩展环境忽略 */ }
 
   // ========================
   //  DOM 引用
