@@ -32,13 +32,12 @@ class DoubaoLLM {
 
 
 
-    // ─── 三大板块提示词（分段生成，最终汇总） ───
+    // ─── 通用背景 + 直播类型背景 ───
 
-    /** 通用业务背景（所有板块共享） */
-    static CONTEXT = `你是一位资深的抖音直播运营分析专家和合规顾问。
+    /** 通用业务背景（所有板块共享，不含直播类型描述） */
+    static CONTEXT_BASE = `你是一位资深的抖音直播运营分析专家和合规顾问。
 
 业务背景须知：
-- 本直播间的主播持有中国证券业协会颁发的投资顾问（投顾）资格证书，在公域平台直播。
 - 抖音直播的"福袋"功能：主播发放福袋后，用户需要发送主播设定好的一句指定评论才能参与领取。因此在福袋发放后，短时间内出现大量完全相同的评论是正常的运营行为，不应视为异常刷屏或无效互动。分析评论时需识别并排除这类福袋口令评论，单独说明福袋互动数据。
 
 输出要求：
@@ -47,13 +46,23 @@ class DoubaoLLM {
 - 优化建议要具体、可直接复用，避免空泛描述
 - 语言风格专业但通俗，适合运营团队直接使用`;
 
-    /** 板块定义（有序数组，按顺序执行） */
-    static SECTIONS = [
-        {
-            key: 'compliance',
-            label: '合规性分析',
-            description: '检查违规话术，提供原话与优化话术对比',
-            system: `请对本场直播话术进行合规性审查，生成"合规性分析"报告章节。
+    /** 直播类型背景描述 */
+    static LIVE_TYPE_CONTEXT = {
+        advisory: '- 本直播间的主播持有中国证券业协会颁发的投资顾问（投顾）资格证书，在公域平台直播。',
+        fund: '- 本直播间为基金公司（公募/私募基金管理人）官方直播间，主播为持牌基金从业人员，在公域平台进行投资者教育与基金产品介绍直播。'
+    };
+
+    /** 根据直播类型获取完整 CONTEXT */
+    static getContext(liveType = 'advisory') {
+        const typeContext = DoubaoLLM.LIVE_TYPE_CONTEXT[liveType] || DoubaoLLM.LIVE_TYPE_CONTEXT.advisory;
+        return DoubaoLLM.CONTEXT_BASE.replace('业务背景须知：', `业务背景须知：\n${typeContext}`);
+    }
+
+    // ─── 合规提示词（按直播类型区分） ───
+
+    static COMPLIANCE_PROMPTS = {
+        /** 投顾版合规提示词 */
+        advisory: `请对本场直播话术进行合规性审查，生成"合规性分析"报告章节。
 
 背景：本直播间主播持有合法投顾资格证，在抖音公域平台直播。根据中国证监会和抖音平台规则，持证投顾可以围绕经济形势、市场变化、经济数据进行宏观层面的专业分析评论，但仍有严格的合规红线。请逐条审查以下五大维度：
 
@@ -66,7 +75,7 @@ class DoubaoLLM {
 
 二、引流与私域导流检查：
 - 是否通过口播、弹幕引导等方式，引导用户添加微信、加入外部群组、点击外部链接等私域导流行为？
-- 是否存在引导用户到直播间外进行株股咨询或交易的行为？
+- 是否存在引导用户到直播间外进行证券咨询或交易的行为？
 
 三、通用话术合规检查：
 - **绝对化用语**：是否使用"最好""第一""全网最X""国家级""央视推荐"等极限词？（须有官方认证文件支撑）
@@ -91,7 +100,64 @@ class DoubaoLLM {
 必须引用主播原话，逐条列出，不可笼统概述。
 
 3. **合规亮点**：列出主播在合规方面做得好的地方（如主动进行风险提示、婉拒观众个股提问、强调"不构成投资建议"等）
+4. **改进建议小结**：给出 3-5 条可直接落地的合规改进建议`,
+
+        /** 基金版合规提示词 */
+        fund: `请对本场直播话术进行合规性审查，生成"合规性分析"报告章节。
+
+背景：本直播间为基金公司（公募/私募基金管理人）官方直播间，主播为持牌基金从业人员，在抖音公域平台进行投资者教育与基金产品介绍直播。根据中国证监会《公开募集证券投资基金销售机构监督管理办法》《基金从业人员执业行为管理办法》和抖音平台规则，请逐条审查以下五大维度：
+
+一、基金销售合规核心红线（最高优先级）：
+1. **保本保收益承诺**：是否使用"保本""保收益""稳赚不赔""零风险""年化收益不低于XX%"等承诺性表述？（基金产品不得承诺保本保收益）
+2. **夸大历史业绩**：是否片面宣传基金过往业绩？是否缺少"过往业绩不代表未来表现"的必要提示？是否仅展示短期高收益数据而隐瞒长期波动？
+3. **诱导申购/定投**：是否使用"赶紧买入""现在不买就亏了""这只基金必涨""抓紧上车"等诱导性话术？
+4. **投资者适当性缺失**：介绍基金产品时是否提示产品的风险等级（R1-R5）？是否提醒投资者评估自身风险承受能力？
+5. **缺少法定风险提示**：宣传基金产品时是否缺少"基金有风险，投资需谨慎""基金的过往业绩不预示其未来表现"等法定提示语？
+
+二、基金销售适当性与信息披露：
+- 介绍具体基金产品时，是否披露基金名称全称、基金代码、基金管理人、托管人？
+- 是否正确披露基金的风险等级和投资类型（股票型/混合型/债券型/货币型等）？
+- 是否存在将不同风险等级基金混为一谈、模糊风险差异的表述？
+- 是否有引导不适当投资者购买高风险产品的行为？
+
+三、引流与私域导流检查：
+- 是否通过口播、弹幕引导等方式，引导用户添加微信、加入外部群组进行基金销售？
+- 是否存在引导用户到非法定渠道办理基金开户或申购的行为？
+- 是否违规承诺通过私域渠道提供专属投资建议或内幕信息？
+
+四、通用话术合规检查：
+- **绝对化用语**：是否使用"最好的基金""第一名基金经理""全市场最优"等极限词？
+- **虚假/夸大宣传**：是否虚构基金经理资历、夸大管理规模、伪造获奖记录？
+- **虚假营销**：是否存在"限时申购""即将关闭"等未经基金公司确认的虚假限时话术？
+- **敏感领域越界**：是否涉及个股推荐、期货交易等超出基金从业范围的表述？
+
+五、观众互动合规：
+- 当观众在评论区咨询具体基金是否值得买入时，主播是否正确应对？（应提示需根据个人风险承受能力判断，不构成投资建议）
+- 当观众咨询个股时，主播是否明确说明基金直播不涉及个股推荐？
+- 是否存在主播对观众的投资金额、持仓品种进行具体操作指导的情况？
+
+输出格式要求：
+1. 先给出整体合规评级及依据：🟢 低风险 / 🟡 中风险 / 🔴 高风险
+2. 按维度分组，对每一条疑似违规话术，严格按以下表格呈现：
+
+| 原始话术 | 违规维度 | 风险等级 | 合规优化建议 |
+
+必须引用主播原话，逐条列出，不可笼统概述。
+
+3. **合规亮点**：列出主播在合规方面做得好的地方（如主动进行风险提示、披露产品风险等级、提醒投资者适当性等）
 4. **改进建议小结**：给出 3-5 条可直接落地的合规改进建议`
+    };
+
+    // ─── 四大板块提示词（分段生成，并行执行） ───
+
+    /** 板块定义（有序数组） */
+    static SECTIONS = [
+        {
+            key: 'compliance',
+            label: '合规性分析',
+            description: '检查违规话术，提供原话与优化话术对比',
+            // system 提示词在 buildInput 时根据 liveType 动态注入
+            system: null
         },
         {
             key: 'framework',
@@ -134,21 +200,123 @@ class DoubaoLLM {
 - 分析本场直播是否有预约引导话术及其效果
 - **提供至少 3 条预约引导话术示例**，需包含下次直播的价值预告
 - 给出预约引导的最佳时机建议（如开场、内容高潮后、下播前）`
+        },
+        {
+            key: 'scoring',
+            label: '直播质量评分',
+            description: '多维度打分，量化直播质量',
+            system: `请对本场直播进行多维度质量评分，生成"直播质量评分"报告章节。
+
+你需要从以下 5 个维度对直播质量进行评估，每个维度满分 20 分，总分 100 分。请根据数据给出客观、量化的评分，并附上评分依据。
+
+### 评分维度
+
+#### 1. 互动活跃度（满分 20 分）
+评估要素：
+- 有效评论密度（排除福袋口令后，每分钟有效评论数）
+- 评论内容质量（与直播内容相关的提问/讨论占比 vs 无意义灌水占比）
+- 观众参与的多样性（不同用户参与评论的数量）
+- 福袋互动数据（福袋发放次数、参与人数占比）
+
+#### 2. 内容节奏与结构（满分 20 分）
+评估要素：
+- 内容板块划分是否清晰合理
+- 各板块时长分配是否均衡（是否有板块过于冗长或仓促）
+- 开场是否快速切入主题（开场 3 分钟内是否建立价值感）
+- 收尾是否有总结和预告（是否有效利用了下播前时段）
+- 整体节奏是否流畅（话题切换是否自然、有过渡）
+
+#### 3. 话术质量（满分 20 分）
+评估要素：
+- 专业性：内容表达是否准确专业、有深度
+- 钩子话术数量和质量（是否有效设置悬念、引导继续观看）
+- 互动引导频率（关注引导、评论引导、预约引导的次数和质量）
+- 语言表达的流畅度和感染力
+- 风险提示的规范程度
+
+#### 4. 观众留存表现（满分 20 分）
+评估要素（基于趋势数据分析）：
+- 在线人数曲线整体走势（稳定/上升/下降趋势）
+- 峰值在线人数与平均在线人数的比值（比值越小说明留存越稳定）
+- 是否存在明显的观众流失节点（在线人数骤降的时段及原因分析）
+- 直播后半段相比前半段的留存表现
+- 关键互动节点（福袋、精彩内容）对在线人数的拉升效果
+
+#### 5. 互动回应质量（满分 20 分）
+评估要素：
+- 主播是否积极回应观众评论和提问
+- 回应的专业性和针对性（是否给出有价值的回答）
+- 对敏感问题（如个股提问）的应对是否得当
+- 是否有选择性忽略合理提问的情况
+- 互动是否推动了直播内容的深入讨论
+
+### 输出格式要求
+
+请按以下格式输出：
+
+#### 📊 总评分：XX / 100 分
+
+| 评分维度 | 得分 | 评级 |
+| --- | --- | --- |
+| 互动活跃度 | XX/20 | ⭐⭐⭐⭐⭐ |
+| 内容节奏与结构 | XX/20 | ⭐⭐⭐⭐ |
+| 话术质量 | XX/20 | ⭐⭐⭐⭐ |
+| 观众留存表现 | XX/20 | ⭐⭐⭐ |
+| 互动回应质量 | XX/20 | ⭐⭐⭐⭐ |
+
+（⭐评级规则：18-20=⭐⭐⭐⭐⭐，15-17=⭐⭐⭐⭐，12-14=⭐⭐⭐，9-11=⭐⭐，0-8=⭐）
+
+然后对每个维度展开详细分析：
+1. **评分依据**：引用原始数据中的具体数据/话术作为评分依据
+2. **亮点**：该维度做得好的地方
+3. **扣分项**：该维度存在的问题
+4. **提升建议**：具体可落地的改进方案`
         }
     ];
+
+    // ─── 整体优化点汇总板块（前 4 板块完成后触发） ───
+
+    static SUMMARY_SECTION = {
+        key: 'summary',
+        label: '整体优化建议',
+        description: '综合分析，按重要性排序的优化清单',
+        system: `你是一位资深的抖音直播运营总监。现在你已经收到了一份直播的完整分析报告，包括合规性分析、直播框架分析、直播技巧优化和直播质量评分四个板块的详细分析结果。
+
+请综合以上所有分析内容，生成一份"整体优化建议"汇总报告。
+
+### 要求：
+
+1. **优化点提取与排序**：从四个分析板块中提取所有优化建议和问题点，按以下优先级排序：
+   - 🔴 **紧急（P0）**：涉及合规红线、法律风险的问题，必须立即整改
+   - 🟠 **重要（P1）**：直接影响直播数据和商业表现的问题
+   - 🟡 **建议（P2）**：有助于提升直播质量但非紧迫的优化项
+   - 🟢 **锦上添花（P3）**：长期优化方向
+
+2. **输出格式**：
+
+### 📋 整体优化清单（按优先级排序）
+
+| 序号 | 优先级 | 优化项 | 来源板块 | 预期效果 |
+
+逐条列出，每条包含具体的优化内容描述。
+
+3. **Top 3 关键行动**：从所有优化点中挑选最关键的 3 条，给出详细的执行方案，包括：
+   - 具体做什么
+   - 怎么做（话术模板、操作步骤）
+   - 预期效果
+
+4. **本场直播总评**：用 2-3 句话总结本场直播的整体表现，指出最大的亮点和最需要改进的地方。`
+    };
 
     // ─── Prompt 构建 ───
 
     /**
-     * 将采集数据组装为 Responses API 的 input 数组
+     * 构建原始数据的文本上下文
      * @param {Object} data - { transcriptData, commentData, trendData }
-     * @param {string} sectionKey - 板块 key（compliance / framework / technique）
-     * @returns {Array} Responses API input 数组
+     * @returns {string} 数据文本
      */
-    static buildInput(data, sectionKey) {
+    static _buildDataContext(data) {
         const { transcriptData, commentData, trendData } = data;
-
-        // 构建数据上下文
         const parts = [];
 
         if (trendData && Object.keys(trendData).length > 0) {
@@ -220,12 +388,53 @@ class DoubaoLLM {
             parts.push('');
         }
 
-        const dataContext = parts.join('\n');
+        return parts.join('\n');
+    }
 
-        // 找到对应板块的提示词
-        const section = DoubaoLLM.SECTIONS.find(s => s.key === sectionKey);
-        const sectionPrompt = section ? section.system : '';
-        const systemPrompt = DoubaoLLM.CONTEXT + '\n\n' + sectionPrompt;
+    /**
+     * 将采集数据组装为 Responses API 的 input 数组
+     * @param {Object} data - { transcriptData, commentData, trendData }
+     * @param {string} sectionKey - 板块 key（compliance / framework / technique / scoring / summary）
+     * @param {Object} options - { liveType: 'advisory'|'fund', previousResults: {} }
+     * @returns {Array} Responses API input 数组
+     */
+    static buildInput(data, sectionKey, { liveType = 'advisory', previousResults = {} } = {}) {
+        // summary 板块：将前 4 个板块的结果作为输入
+        if (sectionKey === 'summary') {
+            const prevParts = [];
+            DoubaoLLM.SECTIONS.forEach((sec, idx) => {
+                if (previousResults[sec.key]) {
+                    prevParts.push(`# ${idx + 1}. ${sec.label}\n\n${previousResults[sec.key]}`);
+                }
+            });
+            const prevContext = prevParts.join('\n\n---\n\n');
+            const summaryPrompt = DoubaoLLM.SUMMARY_SECTION.system;
+
+            return [
+                {
+                    role: 'system',
+                    content: [{ type: 'input_text', text: summaryPrompt }]
+                },
+                {
+                    role: 'user',
+                    content: [{ type: 'input_text', text: `以下是本场直播的完整分析报告（共 4 个板块），请综合分析并生成整体优化建议：\n\n${prevContext}` }]
+                }
+            ];
+        }
+
+        // 常规板块：用采集的原始数据
+        const dataContext = DoubaoLLM._buildDataContext(data);
+
+        // 获取板块提示词（compliance 需要根据 liveType 动态选择）
+        let sectionPrompt = '';
+        if (sectionKey === 'compliance') {
+            sectionPrompt = DoubaoLLM.COMPLIANCE_PROMPTS[liveType] || DoubaoLLM.COMPLIANCE_PROMPTS.advisory;
+        } else {
+            const section = DoubaoLLM.SECTIONS.find(s => s.key === sectionKey);
+            sectionPrompt = section ? section.system : '';
+        }
+
+        const systemPrompt = DoubaoLLM.getContext(liveType) + '\n\n' + sectionPrompt;
 
         return [
             {
@@ -249,12 +458,13 @@ class DoubaoLLM {
     /**
      * 发起 LLM 分析（流式返回，支持并行）
      * @param {Object} data - 采集数据
-     * @param {string} sectionKey - 板块 key（compliance / framework / technique）
+     * @param {string} sectionKey - 板块 key（compliance / framework / technique / scoring / summary）
      * @param {Function} onChunk - 流式回调 (content: string) => void
      * @param {Function} onDone - 完成回调 () => void
      * @param {Function} onError - 错误回调 (error: string) => void
+     * @param {Object} options - { liveType, previousResults }
      */
-    static async analyze(data, sectionKey, onChunk, onDone, onError) {
+    static async analyze(data, sectionKey, onChunk, onDone, onError, options = {}) {
         const config = await DoubaoLLM.getConfig();
 
         if (!config.apiKey || !config.model) {
@@ -262,7 +472,7 @@ class DoubaoLLM {
             return;
         }
 
-        const input = DoubaoLLM.buildInput(data, sectionKey);
+        const input = DoubaoLLM.buildInput(data, sectionKey, options);
         const MAX_RETRIES = 3;
 
         // 单次连接尝试

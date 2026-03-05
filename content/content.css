@@ -1078,3 +1078,140 @@
 #douyin-extractor-float .dex-ai-error .dex-error-close:hover {
   opacity: 1;
 }
+
+/* ==============================
+   直播类型选择弹窗
+   ============================== */
+
+#douyin-extractor-float .dex-ai-type-modal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  border-radius: 20px;
+  animation: dex-slide-in 0.25s ease;
+}
+
+#douyin-extractor-float .dex-ai-type-modal-content {
+  background: rgba(255, 252, 245, 0.98);
+  border: 1px solid rgba(128, 0, 32, 0.12);
+  border-radius: 16px;
+  padding: 24px 20px 20px;
+  width: 90%;
+  max-width: 320px;
+  box-shadow: 0 12px 40px rgba(128, 0, 32, 0.2);
+  text-align: center;
+}
+
+#douyin-extractor-float .dex-ai-type-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #800020;
+  margin-bottom: 4px;
+}
+
+#douyin-extractor-float .dex-ai-type-modal-desc {
+  font-size: 12px;
+  color: #8B6B5E;
+  margin-bottom: 16px;
+}
+
+#douyin-extractor-float .dex-ai-type-cards {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+#douyin-extractor-float .dex-ai-type-card {
+  flex: 1;
+  padding: 16px 10px 14px;
+  border: 2px solid rgba(128, 0, 32, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-align: center;
+}
+
+#douyin-extractor-float .dex-ai-type-card:hover {
+  border-color: rgba(128, 0, 32, 0.35);
+  background: rgba(255, 248, 245, 0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(128, 0, 32, 0.12);
+}
+
+#douyin-extractor-float .dex-ai-type-card.selected {
+  border-color: #800020;
+  background: rgba(128, 0, 32, 0.04);
+  box-shadow: 0 0 0 3px rgba(128, 0, 32, 0.08);
+}
+
+#douyin-extractor-float .dex-ai-type-card-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+  line-height: 1;
+}
+
+#douyin-extractor-float .dex-ai-type-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #5D4E47;
+  margin-bottom: 4px;
+}
+
+#douyin-extractor-float .dex-ai-type-card-desc {
+  font-size: 10px;
+  color: #A09080;
+  line-height: 1.4;
+}
+
+#douyin-extractor-float .dex-ai-type-cancel {
+  background: transparent;
+  border: 1px solid rgba(128, 0, 32, 0.15);
+  border-radius: 8px;
+  padding: 8px 24px;
+  font-size: 12px;
+  color: #8B6B5E;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+#douyin-extractor-float .dex-ai-type-cancel:hover {
+  background: rgba(128, 0, 32, 0.04);
+  border-color: rgba(128, 0, 32, 0.3);
+}
+
+/* ==============================
+   整体优化汇总板块
+   ============================== */
+
+#douyin-extractor-float .dex-ai-section-summary {
+  margin-top: 12px;
+  border: 1px solid rgba(128, 0, 32, 0.12);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(255, 248, 245, 0.8), rgba(253, 240, 235, 0.6));
+  animation: dex-slide-in 0.3s var(--dex-cubic-spring);
+}
+
+#douyin-extractor-float .dex-ai-section-summary .dex-ai-section-header {
+  cursor: default;
+}
+
+#douyin-extractor-float .dex-ai-section-summary .dex-ai-section-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #B8860B, #DAA520);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

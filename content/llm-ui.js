@@ -3,8 +3,8 @@
  *
  * 职责：
  * - 设置面板（API Key / 模型名称）
- * - 一键生成综合报告（自动连续生成 3 板块）
- * - 三板块可展开查看详情 / 单独生成
+ * - 一键生成综合报告（选择基金/投顾 → 并行生成 4 板块 → 汇总优化建议）
+ * - 四板块可展开查看详情 / 单独生成 + 汇总板块
  * - 汇总结果后下载 HTML / TXT 报告
  */
 
@@ -333,19 +333,58 @@
         <button class="dex-btn dex-btn-ai dex-btn-stop-full" id="dex-ai-btn-all-stop" style="display:none;">${ICONS.STOP} 停止生成</button>
       </div>
 
+      <!-- 直播类型选择弹窗 -->
+      <div class="dex-ai-type-modal" id="dex-ai-type-modal" style="display:none;">
+        <div class="dex-ai-type-modal-content">
+          <div class="dex-ai-type-modal-title">选择直播类型</div>
+          <div class="dex-ai-type-modal-desc">不同类型的直播有不同的合规审核标准</div>
+          <div class="dex-ai-type-cards">
+            <div class="dex-ai-type-card" data-type="fund" id="dex-ai-type-fund">
+              <div class="dex-ai-type-card-icon">📊</div>
+              <div class="dex-ai-type-card-title">基金直播</div>
+              <div class="dex-ai-type-card-desc">公募/私募基金公司的投资者教育与产品介绍直播</div>
+            </div>
+            <div class="dex-ai-type-card" data-type="advisory" id="dex-ai-type-advisory">
+              <div class="dex-ai-type-card-icon">💼</div>
+              <div class="dex-ai-type-card-title">投顾直播</div>
+              <div class="dex-ai-type-card-desc">持证投资顾问的市场分析与投资建议直播</div>
+            </div>
+          </div>
+          <button class="dex-btn dex-ai-type-cancel" id="dex-ai-type-cancel">取消</button>
+        </div>
+      </div>
+
       <!-- 综合进度 -->
       <div class="dex-ai-progress" id="dex-ai-progress" style="display:none;">
         <span class="dex-ai-status-icon" id="dex-ai-progress-icon"></span>
         <span class="dex-ai-status-text" id="dex-ai-progress-text"></span>
       </div>
 
-      <!-- 三大板块（整体折叠） -->
+      <!-- 四大板块（整体折叠） -->
       <details class="dex-details dex-ai-details-wrap">
         <summary class="dex-summary">展开单项分析</summary>
         <div class="dex-ai-sections">
           ${sectionCards}
         </div>
       </details>
+
+      <!-- 整体优化汇总板块 -->
+      <div class="dex-ai-section dex-ai-section-summary" id="dex-ai-sec-summary" style="display:none;">
+        <div class="dex-ai-section-header">
+          <span class="dex-ai-section-num">📋</span>
+          <div class="dex-ai-section-info">
+            <span class="dex-ai-section-label">${LLM.SUMMARY_SECTION.label}</span>
+            <span class="dex-ai-section-desc">${LLM.SUMMARY_SECTION.description}</span>
+          </div>
+          <span class="dex-ai-section-badge" id="dex-ai-badge-summary"></span>
+        </div>
+        <div class="dex-ai-section-body" id="dex-ai-body-summary" style="display:none;">
+          <div class="dex-ai-section-status" id="dex-ai-status-summary" style="display:none;">
+            <span class="dex-ai-status-icon" id="dex-ai-icon-summary"></span>
+            <span class="dex-ai-status-text" id="dex-ai-text-summary"></span>
+          </div>
+        </div>
+      </div>
 
       <!-- 汇总下载区 -->
       <div class="dex-ai-summary" id="dex-ai-summary" style="display:none;">
@@ -382,11 +421,26 @@
     const dlTxtBtn = $el('dex-ai-dl-txt');
     const errorEl = $el('dex-ai-error');
 
+    // 直播类型选择弹窗元素
+    const typeModal = $el('dex-ai-type-modal');
+    const typeCancelBtn = $el('dex-ai-type-cancel');
+    const typeFundCard = $el('dex-ai-type-fund');
+    const typeAdvisoryCard = $el('dex-ai-type-advisory');
+
+    // summary 板块元素
+    const summarySectionEl = $el('dex-ai-sec-summary');
+    const summaryBodyEl = $el('dex-ai-body-summary');
+    const summaryStatusWrap = $el('dex-ai-status-summary');
+    const summaryStatusIcon = $el('dex-ai-icon-summary');
+    const summaryStatusText = $el('dex-ai-text-summary');
+    const summaryBadge = $el('dex-ai-badge-summary');
+
     // 状态存储
     const sectionResults = {};
     const activeSections = new Set();
     let isAutoMode = false;
     let autoStopped = false;
+    let currentLiveType = 'advisory'; // 当前选中的直播类型
 
     // 定时检查数据可用性，控制按钮 disabled 状态
     function updateBtnAllState() {
@@ -441,6 +495,11 @@
       errorEl.style.display = 'none';
     }
 
+    // ─── 加载上次选择的直播类型 ───
+    chrome.storage.local.get(['dex_live_type'], (result) => {
+      if (result.dex_live_type) currentLiveType = result.dex_live_type;
+    });
+
     // ─── 汇总 Markdown ───
     function buildFullMarkdown() {
       const parts = [];
@@ -449,31 +508,36 @@
           parts.push(`# ${idx + 1}. ${sec.label}\n\n${sectionResults[sec.key]}`);
         }
       });
+      // 追加整体优化汇总
+      if (sectionResults.summary) {
+        parts.push(`# ${LLM.SECTIONS.length + 1}. ${LLM.SUMMARY_SECTION.label}\n\n${sectionResults.summary}`);
+      }
       return parts.join('\n\n---\n\n');
     }
 
-    function updateSummary() {
+    function updateDownloadArea() {
       summaryWrap.style.display = Object.keys(sectionResults).length > 0 ? '' : 'none';
     }
 
     // ─── 单板块生成（返回 Promise） ───
-    function generateSection(sectionKey, data) {
+    function generateSection(sectionKey, data, { liveType = 'advisory', previousResults = {} } = {}) {
       return new Promise((resolve, reject) => {
-        const sec = LLM.SECTIONS.find(s => s.key === sectionKey);
+        // summary 板块的 UI 元素处理不同
+        const isSummary = sectionKey === 'summary';
         const statusWrap = $el(`dex-ai-status-${sectionKey}`);
         const statusIcon = $el(`dex-ai-icon-${sectionKey}`);
         const statusText = $el(`dex-ai-text-${sectionKey}`);
-        const stopBtn = $el(`dex-ai-stop-${sectionKey}`);
+        const stopBtn = isSummary ? null : $el(`dex-ai-stop-${sectionKey}`);
         const badge = $el(`dex-ai-badge-${sectionKey}`);
-        const actionsWrap = $el(`dex-ai-actions-${sectionKey}`);
-        const genBtn = $el(`dex-ai-gen-${sectionKey}`);
+        const actionsWrap = isSummary ? null : $el(`dex-ai-actions-${sectionKey}`);
+        const genBtn = isSummary ? null : $el(`dex-ai-gen-${sectionKey}`);
 
         activeSections.add(sectionKey);
         let charCount = 0;
         sectionResults[sectionKey] = '';
-        actionsWrap.style.display = 'none';
+        if (actionsWrap) actionsWrap.style.display = 'none';
         statusWrap.style.display = '';
-        if (!isAutoMode) stopBtn.style.display = '';
+        if (stopBtn && !isAutoMode) stopBtn.style.display = '';
         statusIcon.innerHTML = ICONS.LOADING;
         statusText.textContent = '正在生成...';
         badge.innerHTML = '';
@@ -490,39 +554,40 @@
           },
           () => {
             activeSections.delete(sectionKey);
-            stopBtn.style.display = 'none';
+            if (stopBtn) stopBtn.style.display = 'none';
             statusIcon.innerHTML = ICONS.CHECK;
             statusText.textContent = `已完成，${sectionResults[sectionKey].length} 字`;
             badge.innerHTML = ICONS.CHECK;
             badge.className = 'dex-ai-section-badge done';
-            actionsWrap.style.display = '';
-            genBtn.innerHTML = ICONS.AI + ' 重新生成';
-            updateSummary();
+            if (actionsWrap) actionsWrap.style.display = '';
+            if (genBtn) genBtn.innerHTML = ICONS.AI + ' 重新生成';
+            updateDownloadArea();
             // 并行模式下更新综合进度
-            if (isAutoMode) updateParallelProgress();
+            if (isAutoMode && !isSummary) updateParallelProgress();
             resolve();
           },
           (error) => {
             activeSections.delete(sectionKey);
-            stopBtn.style.display = 'none';
+            if (stopBtn) stopBtn.style.display = 'none';
             if (sectionResults[sectionKey]) {
               statusIcon.innerHTML = ICONS.WARN;
               statusText.textContent = `中断，已生成 ${sectionResults[sectionKey].length} 字`;
               badge.innerHTML = ICONS.WARN;
               badge.className = 'dex-ai-section-badge warn';
-              actionsWrap.style.display = '';
-              genBtn.innerHTML = ICONS.AI + ' 重新生成';
-              updateSummary();
+              if (actionsWrap) actionsWrap.style.display = '';
+              if (genBtn) genBtn.innerHTML = ICONS.AI + ' 重新生成';
+              updateDownloadArea();
             } else {
               delete sectionResults[sectionKey];
               statusWrap.style.display = 'none';
-              actionsWrap.style.display = '';
-              genBtn.innerHTML = ICONS.AI + ' 单独生成';
-              updateSummary();
+              if (actionsWrap) actionsWrap.style.display = '';
+              if (genBtn) genBtn.innerHTML = ICONS.AI + ' 单独生成';
+              updateDownloadArea();
             }
-            if (isAutoMode) updateParallelProgress();
+            if (isAutoMode && !isSummary) updateParallelProgress();
             reject(error);
-          }
+          },
+          { liveType, previousResults }
         );
       });
     }
@@ -533,14 +598,67 @@
       const total = LLM.SECTIONS.length;
       if (done === total) {
         progressIcon.innerHTML = ICONS.CHECK;
-        progressText.textContent = `综合报告生成完成，共 ${total} 个板块`;
+        progressText.textContent = `${total} 个板块生成完成，正在汇总整体优化建议...`;
       } else {
         progressIcon.innerHTML = ICONS.LOADING;
         progressText.textContent = `正在并行生成 ${activeSections.size} 个板块，已完成 ${done}/${total}`;
       }
     }
 
-    // ─── 一键生成综合报告（并行） ───
+    // ─── 整体优化汇总生成 ───
+    async function generateSummarySection(data) {
+      // 显示汇总板块
+      summarySectionEl.style.display = '';
+      summaryBodyEl.style.display = '';
+
+      try {
+        await generateSection('summary', data, {
+          liveType: currentLiveType,
+          previousResults: { ...sectionResults }
+        });
+      } catch (err) {
+        console.warn('[AI面板] 汇总生成出错:', err);
+      }
+    }
+
+    // ─── 直播类型选择弹窗逻辑 ───
+    function showTypeModal() {
+      return new Promise((resolve) => {
+        // 高亮上次选择
+        typeFundCard.classList.toggle('selected', currentLiveType === 'fund');
+        typeAdvisoryCard.classList.toggle('selected', currentLiveType === 'advisory');
+        typeModal.style.display = '';
+
+        function handleSelect(type) {
+          currentLiveType = type;
+          chrome.storage.local.set({ dex_live_type: type });
+          typeModal.style.display = 'none';
+          cleanup();
+          resolve(type);
+        }
+
+        function handleCancel() {
+          typeModal.style.display = 'none';
+          cleanup();
+          resolve(null);
+        }
+
+        function onFund() { handleSelect('fund'); }
+        function onAdvisory() { handleSelect('advisory'); }
+
+        function cleanup() {
+          typeFundCard.removeEventListener('click', onFund);
+          typeAdvisoryCard.removeEventListener('click', onAdvisory);
+          typeCancelBtn.removeEventListener('click', handleCancel);
+        }
+
+        typeFundCard.addEventListener('click', onFund);
+        typeAdvisoryCard.addEventListener('click', onAdvisory);
+        typeCancelBtn.addEventListener('click', handleCancel);
+      });
+    }
+
+    // ─── 一键生成综合报告（选择类型 → 并行生成 4 板块 → 汇总） ───
     btnAll.addEventListener('click', async () => {
       if (activeSections.size > 0) { showError('请等待当前板块生成完成'); return; }
       hideError();
@@ -548,13 +666,22 @@
       const data = getDataFn();
       if (!data) { showError('暂无数据，请先采集直播数据'); return; }
 
+      // 弹出直播类型选择
+      const selectedType = await showTypeModal();
+      if (!selectedType) return; // 用户取消
+
       isAutoMode = true;
       autoStopped = false;
       btnAll.style.display = 'none';
       btnAllStop.style.display = '';
       progressWrap.style.display = '';
       progressIcon.innerHTML = ICONS.LOADING;
-      progressText.textContent = `正在并行生成 ${LLM.SECTIONS.length} 个板块...`;
+      progressText.textContent = `正在并行生成 ${LLM.SECTIONS.length} 个板块（${selectedType === 'fund' ? '基金' : '投顾'}模式）...`;
+
+      // 隐藏上次的汇总板块
+      summarySectionEl.style.display = 'none';
+      summaryBodyEl.style.display = 'none';
+      delete sectionResults.summary;
 
       // 展开所有板块
       LLM.SECTIONS.forEach(sec => {
@@ -568,27 +695,32 @@
 
       // 并行发起所有板块生成
       const results = await Promise.allSettled(
-        LLM.SECTIONS.map(sec => generateSection(sec.key, data))
+        LLM.SECTIONS.map(sec => generateSection(sec.key, data, { liveType: selectedType }))
       );
+
+      const succeeded = results.filter(r => r.status === 'fulfilled').length;
+
+      // 4 板块全部完成后自动生成汇总
+      if (succeeded === LLM.SECTIONS.length && !autoStopped) {
+        progressIcon.innerHTML = ICONS.LOADING;
+        progressText.textContent = '正在汇总整体优化建议...';
+        await generateSummarySection(data);
+        progressIcon.innerHTML = ICONS.CHECK;
+        progressText.textContent = `综合报告生成完成，共 ${LLM.SECTIONS.length + 1} 个部分`;
+      } else if (autoStopped) {
+        progressIcon.innerHTML = ICONS.STOPPED;
+        progressText.textContent = '已停止';
+      } else {
+        progressIcon.innerHTML = ICONS.WARN;
+        progressText.textContent = `已完成 ${succeeded}/${LLM.SECTIONS.length} 个板块（部分失败，未生成汇总）`;
+      }
 
       // 完成或中断
       isAutoMode = false;
       btnAll.style.display = '';
       btnAllStop.style.display = 'none';
       btnAll.innerHTML = ICONS.AI + ' 重新生成综合报告';
-
-      const succeeded = results.filter(r => r.status === 'fulfilled').length;
-      if (succeeded === LLM.SECTIONS.length) {
-        progressIcon.innerHTML = ICONS.CHECK;
-        progressText.textContent = `综合报告生成完成，共 ${LLM.SECTIONS.length} 个板块`;
-      } else if (autoStopped) {
-        progressIcon.innerHTML = ICONS.STOPPED;
-        progressText.textContent = '已停止';
-      } else {
-        progressIcon.innerHTML = ICONS.WARN;
-        progressText.textContent = `已完成 ${succeeded}/${LLM.SECTIONS.length} 个板块`;
-      }
-      updateSummary();
+      updateDownloadArea();
     });
 
     // 停止一键生成（停止全部）
@@ -618,7 +750,7 @@
         const data = getDataFn();
         if (!data) { showError('暂无数据，请先采集直播数据'); return; }
         try {
-          await generateSection(sec.key, data);
+          await generateSection(sec.key, data, { liveType: currentLiveType });
         } catch (err) {
           showError(err);
         }
@@ -639,7 +771,7 @@
           $el(`dex-ai-badge-${sec.key}`).className = 'dex-ai-section-badge warn';
           $el(`dex-ai-actions-${sec.key}`).style.display = '';
           genBtn.innerHTML = ICONS.AI + ' 重新生成';
-          updateSummary();
+          updateDownloadArea();
         } else {
           $el(`dex-ai-status-${sec.key}`).style.display = 'none';
           $el(`dex-ai-actions-${sec.key}`).style.display = '';
