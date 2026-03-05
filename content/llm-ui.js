@@ -110,12 +110,12 @@
         continue;
       }
 
-      // 标题（h1-h4）
-      const headingMatch = trimmed.match(/^(#{1,4})\s+(.+)$/);
+      // 标题（h1-h4）— 兼容各种空格（全角、NBSP 等）和中文标题无空格
+      const headingMatch = trimmed.match(/^(#{1,4})[\s\u00A0\u3000]+(.+)$/) || trimmed.match(/^(#{1,4})([^\s#].*)$/);
       if (headingMatch) {
         closeAllLists();
         const level = headingMatch[1].length;
-        result.push(`<h${level}>${formatInline(headingMatch[2])}</h${level}>`);
+        result.push(`<h${level}>${formatInline(headingMatch[2].trim())}</h${level}>`);
         continue;
       }
 
