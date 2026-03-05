@@ -393,7 +393,7 @@
     };
 
     // 主播名
-    const anchorName = sanitize(document.querySelector('.WGzwx span')?.textContent?.trim());
+    const anchorName = sanitize(document.querySelector('.nbzTX')?.textContent?.trim() || document.querySelector('.WGzwx span')?.textContent?.trim() || '');
 
     // 直播标题
     const title = sanitize(document.querySelector('.basic-name')?.textContent?.trim());
@@ -514,7 +514,7 @@
       // getMetaFn — 获取直播元数据
       () => {
         const filename = getLiveMetaFilename();
-        const anchorName = document.querySelector('.WGzwx span')?.textContent?.trim() || '';
+        const anchorName = document.querySelector('.nbzTX')?.textContent?.trim() || document.querySelector('.WGzwx span')?.textContent?.trim() || '';
         let dateStr = '';
         const timeEls = document.querySelectorAll('.basic-time');
         for (const el of timeEls) {
