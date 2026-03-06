@@ -515,7 +515,11 @@
         if (transcriptData.length === 0 && commentData.length === 0 && Object.keys(trendData).length === 0) {
           return null;
         }
-        return { transcriptData, commentData, trendData };
+        // 直播间元数据（标题、主播名），供 LLM 标题评分等分析使用
+        const title = document.querySelector('.basic-name')?.textContent?.trim() || '';
+        const anchorName = document.querySelector('.nbzTX')?.textContent?.trim()
+          || document.querySelector('.WGzwx span')?.textContent?.trim() || '';
+        return { transcriptData, commentData, trendData, liveMeta: { title, anchor: anchorName } };
       },
       // getMetaFn — 获取直播元数据
       () => {
